@@ -46,7 +46,7 @@ and highlighting notes that contain `philoso`:
 Installation with [vim-plug](https://github.com/junegunn/vim-plug) is straightforward. 
 Simply paste the following snippet in your rc, call `PlugInstall` and you're good to go.
 ```
-Plug 'https://github.com/lambdasonly/VimwikiGraph, { 'for': 'vimwiki', 'do': './install.sh' }
+Plug 'https://github.com/lambdasonly/VimwikiGraph', { 'for': 'vimwiki', 'do': './install.sh' }
 ```
 
 # Options
