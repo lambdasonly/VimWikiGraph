@@ -12,35 +12,32 @@ filtering operations.
 
 # Usage Guide
 VimWikiGraph currently supports one filtering method and two text extraction/highlighting methods.
-Notes can be filtered according to their tags. Tags may only occur in the first line of every note
-and are separated by colons `:tag1:tag2:tag3:`. Additionally, nodes can be highlighted and their
-labels extended by specifying regexes [see the examples below](#screenshots).
+Highlighting and filtering is performed via regular expressions. [See the examples below](#screenshots).
 
 # Commands
 The internal graph representation is automatically generated upon plugin load. If, upon creating 
 new links or files you want to refresh the graph, you can call `VimWikiBuildGraph`.
 
-The graph is visualized by calls to either
-`VimWikiGenerateGraph [tags]` or `VimWikiGenerateGraphC <regex> <regex> [tags]` where the former 
-is a more streamlined version that only supports tag filtering. Note that multiple tags are supported
-and all arguments should be separated only by spaces. Quoting is not required but spaces should be
+The graph is visualized by calls to either `VimWikiGenerateAdjacencyGraph <depth>`,
+`VimWikiGenerateGraph [regexes]` or `VimWikiGenerateGraphC <highlight_regex> <extraction_regex> [regexes]`.
+The adjacency graph contains all nodes that are at most `depth` hops away from the current node (the
+currently active buffer). `VimWikiGenerateGraph [regexes]` is a more streamlined version that only supports
+filtering. It is equivalent to `VimWikiGenerateGraphC v:none v:none [regexes]`. Note that multiple filter regexes are
+supported and all arguments should be separated only by spaces. Quoting is not required but spaces should be
 escaped if used within a regex. 
 
-Calling `VimWikiGenerateGraphC v:none v:none` is equivalent to calling `VimWikiGenerateGraph`. 
-
 # Screenshots
-Visualize a graph of all notes tagged with 'neuroscience': 
-`VimWikiGenerateGraph neuroscience`
-![basic](screenshots/basic.png)
+Visualize a graph of all notes containing the word 'philo': 
+`VimWikiGenerateGraph philo`
+![basic](screenshots/vimwikigraph2.png)
 
-Additionally highlight all notes containing the word 'memory' (capitalized or not): 
-`VimWikiGenerateGraphC (M|m)emory v:none neuroscience`
-![highlights](screenshots/highlighting.png)
+Additionally highlight all notes containing the word 'cat': 
+`VimWikiGenerateGraphC cat v:none philo`
+![highlights](screenshots/vimwikigraph3.png)
 
-Display all notes tagged with person while extracting information matching `period:.*`
-and highlighting notes that contain `philoso`: 
-`VimWikiGenerateGraph (P|p)hiloso period:.* person`
-![extraction](screenshots/extraction.png)
+Display the full graph with the newly found connections while extracting information matching `period:.*`: 
+`VimWikiGenerateGraph v:none period:.*`
+![extraction](screenshots/vimwikigraph5.png)
 
 # Installation
 Installation with [vim-plug](https://github.com/junegunn/vim-plug) is straightforward. 
@@ -53,6 +50,12 @@ Plug 'https://github.com/lambdasonly/VimwikiGraph', { 'for': 'vimwiki', 'do': '.
 Required options:
 ```
 let g:vimwiki_root_dir = '/Path/To/VimWiki'
+```
+
+Recommended keybindings:
+```
+noremap <Leader>wga :VimWikiGenerateAdjacencyGraph 1<CR>
+noremap <Leader>wgg :VimWikiGenerateGraph
 ```
 
 Default options:
