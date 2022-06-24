@@ -1,0 +1,6 @@
+:philosophy:person:
+
+= Aristotle =
+period: 384-322 BC
+
+[[Greeks]]

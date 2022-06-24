@@ -1,0 +1,7 @@
+:philosophy:person:
+
+= Plato =
+period: ~428–347 BC
+
+- [[Greeks]]
+- [[Aristotle]]

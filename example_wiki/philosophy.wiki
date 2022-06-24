@@ -1,0 +1,9 @@
+:philosophy:
+
+= Philosophy =
+Philosophers:
+- [[Aristotle]]
+- [[Plato]]
+- [[Socrates]]
+
+[[religion|Philosophy and religion]]

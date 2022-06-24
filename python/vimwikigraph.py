@@ -195,6 +195,14 @@ class VimwikiGraph:
 
 
     def remove_nonadjacent_nodes(self, node:str, depth:int=1):
+        """
+        Removes all nodes that are not successors (up to a certain depth)
+        of the specified node in an undirected copy of the graph.
+
+        Args:
+            node (str)
+            depth (int)
+        """
         node = self.__resolve_relative_path(node)
         adjacent_nodes = [node]
         successors = nx.dfs_successors(self.graph.to_undirected(), node, depth)
@@ -224,7 +232,7 @@ class VimwikiGraph:
                 all_matches = list()
                 for regex in regexes:
                     for line in lines:
-                        matches = re.findall(regex, line.lower())
+                        matches = re.findall(regex, line)
                         all_matches.extend(matches)
                 label = self.graph.nodes[node]['label']
                 label = f'"{label}{join_str}{join_str.join(all_matches)}"'

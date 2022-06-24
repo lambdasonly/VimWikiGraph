@@ -1,0 +1,9 @@
+:philosophy:person:
+
+= Socrates =
+period: 470-399 BC
+
+Socrates lived an extraordinarily long life for a cat.
+
+- [[Greeks]]
+- [[Plato]]

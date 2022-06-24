@@ -1,1 +1,3 @@
+*.dot
+*.png
 __pycache__

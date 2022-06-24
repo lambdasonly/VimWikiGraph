@@ -1,0 +1,5 @@
+:animal:philosophy:
+
+Cats are known to have been prominent philosophers.
+
+[[hairball]]
