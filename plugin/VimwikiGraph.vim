@@ -48,10 +48,10 @@ function! VimwikiGraph#GenerateGraph(highlight_regex, data_regex, ...)
     py3 graph_copy = graph_copy.collapse_children(vim.eval('node'))
   endfor
   if a:0 > 0
-    py3 graph_copy = graph_copy.filter_nodes_by_tag(vim.eval('a:000'))
+    py3 graph_copy = graph_copy.filter_nodes(vim.eval('a:000'))
   endif
   if a:highlight_regex != v:none
-    py3 graph_copy = graph_copy.add_attribute_by_regex(vim.eval('a:highlight_regex'),
+    py3 graph_copy = graph_copy.add_attribute_by_regex([vim.eval('a:highlight_regex')],
       \ vim.eval('g:vimwiki_highlight_attributes'), vim.eval('g:vimwiki_highlight_values'))
   endif
   if a:data_regex != v:none
@@ -61,7 +61,7 @@ function! VimwikiGraph#GenerateGraph(highlight_regex, data_regex, ...)
   if g:vimwiki_weight_attribute
     py3 graph_copy = graph_copy.weight_attribute()
   endif
-  py3 graph_copy.write_png(vim.eval('g:vimwiki_graph_name'))
+  py3 graph_copy.write(vim.eval('g:vimwiki_graph_name'))
   call system('xdg-open ' . g:vimwiki_graph_name . '.png &')
 endfunction
 command! -nargs=* VimWikiGenerateGraph call VimwikiGraph#GenerateGraph(v:none, v:none, <f-args>)

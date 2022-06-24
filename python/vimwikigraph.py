@@ -51,28 +51,39 @@ class VimwikiGraph:
         return node_dict
 
 
-    def __parse_tags(self, lines):
-        tags = list()
-        try:
-            line = lines[0]
-            if re.match(r':(\w+:)+', line):
-                tags = line.strip().split(':')
-                tags = [tag for tag in tags if tag]
-        finally:
-            return tags
-
-
     def __parse_and_add_edges(self, node_dict):
         for name, root in node_dict.items():
             with open(name, 'r') as f:
                 lines = f.readlines()
             self.lines[name] = lines
-            self.graph.nodes[name]['tags'] = self.__parse_tags(lines)
             for line in lines:
                 links = re.findall(r'\[\[([^#|\[\]]+)(#[^|\[\]]*)?(|[^\]]*)?\]\]', line)
                 for link in links:
                     child_node = self.__normalize_path(root, link[0])
                     self.graph.add_edge(name, child_node)
+
+
+    def __filter_lines(self, regexes:list, lines):
+        """
+        Returns true if all of the provided regexes match.
+
+        Args:
+            regexes (list): List of regular expressions.
+            lines (list): List of lines to match.
+        """
+        match_count = len(regexes)
+        matches = 0
+        try:
+            for regex in regexes:
+                for line in lines:
+                    if re.search(regex, line):
+                        matches += 1
+                        break
+                if matches == match_count:
+                    return True
+        except Exception as e:
+            print(e)
+        return False
 # }}}
 
 
@@ -90,63 +101,46 @@ class VimwikiGraph:
         parser.add('-t', help='tags to filter the wiki')
         options = vars(parser.parse_args())
         return options
-# }}}
 
 
-# {{{ Output
-    def write_dot(self, name:str=None):
+    def write(self, name:str=None, filetype:str='png'):
         """
-        Writes the current graph to name.dot.
+        Writes the current graph to one of name.png or name.dot
 
         Args:
-            name: Name of the resulting file.
+            name (str): Name of the resulting file.
+            filetype (str): File type. May be either 'png' or 'dot'.
         """
         if not name:
             name = self.graph.name
         PG = nx.drawing.nx_pydot.to_pydot(self.graph)
         PG.set_rankdir('LR')
-        PG.write_raw(f"{name}.dot")
-
-
-    def write_png(self, name:str=None):
-        """
-        Writes the current graph to name.png.
-
-        Args:
-            name: Name of the resulting file.
-        """
-        if not name:
-            name = self.graph.name
-        PG = nx.drawing.nx_pydot.to_pydot(self.graph)
-        PG.set_rankdir('LR')
-        PG.write_png(f"{name}.png")
+        if filetype == 'png':
+            PG.write_png(f"{name}.png")
+        elif filetype == 'dot':
+            PG.write_raw(f"{name}.dot")
+        else:
+            raise Exception("Invalid file type") 
 # }}}
 
 
 # {{{ Graph Operations
-    def add_attribute_by_regex(self, regex, attribute:list, value:list):
+    def add_attribute_by_regex(self, regexes:list, attribute:list, value:list):
         """
-        Add attributes with the corresponding values to documents whose contents is matched by the 
-        specified regex.
+        Add attributes with the corresponding values to documents whose contents is matched by a
+        conjunction of the specified regexes.
 
         Args:
-            regex (str)
+            regexes (list)
             attribute (list): list of graphviz attribute names
             value (list): list of corresponding values
         """
-        try:
-            for node in self.graph.nodes:
-                lines = self.lines.get(node)
-                if lines:
-                    for line in lines:
-                        if re.search(regex, line):
-                            for attr,val in zip(attribute, value):
-                                self.graph.nodes[node][attr] = val
-                            break
-        except Exception as e:
-            print(e)
-        finally:
-            return self
+        for node in self.graph.nodes:
+            lines = self.lines.get(node, list())
+            if self.__filter_lines(regexes, lines):
+                for attr,val in zip(attribute, value):
+                    self.graph.nodes[node][attr] = val
+        return self
         
 
     def weight_attribute(self, attribute:str='fontsize', min_val:int=20, max_val:int=100):
@@ -174,32 +168,24 @@ class VimwikiGraph:
             return self
 
 
-    def filter_nodes_by_tag(self, filter_tags:list):
+    def filter_nodes(self, regexes:list):
         """
-        Filters nodes by 'filter_tags'. All nodes that do not contain one of the tags in
-        'filter_tags' will be removed. Only the first line of every document that has the
-        following structure: ":tag1:tag2:tag3:" is considered to be a tag line.
+        Filters nodes by regexes. All nodes that do not match one of the regular expressions in
+        'regexes' will be removed.
 
         Args:
-            filter_tags (list): List of tags.
+            regexes (list)
         """
-        try:
-            nodes_to_remove = list()
-            for node in self.graph.nodes:
-                remove_node = True
-                tags = self.graph.nodes[node].get('tags')
-                if tags:
-                    for tag in tags:
-                        if tag in filter_tags:
-                            remove_node = False
-                            break
-                if remove_node:
-                    nodes_to_remove.append(node)
-            self.graph.remove_nodes_from(nodes_to_remove)
-        except Exception as e:
-            print(e)
-        finally:
-            return self
+        nodes_to_remove = list()
+        for node in self.graph.nodes:
+            remove_node = True
+            lines = self.lines.get(node, list())
+            if self.__filter_lines(regexes, lines):
+                remove_node = False
+            if remove_node:
+                nodes_to_remove.append(node)
+        self.graph.remove_nodes_from(nodes_to_remove)
+        return self
 
 
     def collapse_children(self, node:str, depth:int=1):
@@ -238,7 +224,7 @@ class VimwikiGraph:
                 all_matches = list()
                 for regex in regexes:
                     for line in lines:
-                        matches = re.findall(regex, line)
+                        matches = re.findall(regex, line.lower())
                         all_matches.extend(matches)
                 label = self.graph.nodes[node]['label']
                 label = f'"{label}{join_str}{join_str.join(all_matches)}"'
@@ -255,10 +241,10 @@ if __name__ == "__main__":
     options = VimwikiGraph.parse()
     vimwikigraph = VimwikiGraph(**options)
     
-    tag = options.get('t')
-    regexes = options.get('r')
+    #  tag = options.get('t')
+    #  regexes = options.get('r')
     if tag:
-        vimwikigraph = vimwikigraph.filter_nodes_by_tag(tag)
+        vimwikigraph = vimwikigraph.filter_nodes(tag)
     if regexes:
         vimwikigraph = vimwikigraph.extend_node_label(regexes)
-    vimwikigraph.weight_attribute().write_png()
+    vimwikigraph.weight_attribute().write()
