@@ -1,4 +1,3 @@
-import configargparse
 import networkx as nx
 import numpy as np
 import os
@@ -87,22 +86,7 @@ class VimwikiGraph:
 # }}}
 
 
-# {{{ Utility
-    @staticmethod
-    def parse():
-        """
-        Static method to parse options from command line or config file.
-        """
-        parser = configargparse.ArgParser(default_config_files=['~/.config/vimwikigraph.conf'])
-        parser.add('-p', '--root_dir', required=True, help='path to vimwiki directory')
-        parser.add('-e', '--file_extensions', nargs='+', default=['wiki'], help='allowed file extensions')
-        parser.add('-n', '--graph_name', default='vimwikigraph', help='name of resulting output files')
-        parser.add('-r', '--regexes', nargs='*', default=[], help='additional regexes whose matches will be added to the node labels')
-        parser.add('-t', help='tags to filter the wiki')
-        options = vars(parser.parse_args())
-        return options
-
-
+# {{{ Output
     def write(self, name:str=None, filetype:str='png'):
         """
         Writes the current graph to one of name.png or name.dot
@@ -234,17 +218,3 @@ class VimwikiGraph:
         finally:
             return self
 # }}}
-
-
-
-if __name__ == "__main__":
-    options = VimwikiGraph.parse()
-    vimwikigraph = VimwikiGraph(**options)
-    
-    #  tag = options.get('t')
-    #  regexes = options.get('r')
-    if tag:
-        vimwikigraph = vimwikigraph.filter_nodes(tag)
-    if regexes:
-        vimwikigraph = vimwikigraph.extend_node_label(regexes)
-    vimwikigraph.weight_attribute().write()
