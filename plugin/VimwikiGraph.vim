@@ -7,6 +7,7 @@ if exists('g:vimwiki_graph_plugin_loaded')
     finish
 endif
 
+
 "{{{ Definitions
 let g:vimwiki_collapse_nodes =
     \ get( g:, 'vimwiki_collapse_nodes', ['diary/diary.wiki'] )
@@ -24,6 +25,7 @@ let g:vimwiki_highlight_values =
     \ get( g:, 'vimwiki_highlight_values',  ['filled', 'red'] )
 "}}}
 
+
 let s:plugin_root_dir = fnamemodify(resolve(expand('<sfile>:p')), ':h')
 py3 << EOF
 import sys
@@ -37,10 +39,12 @@ from vimwikigraph import VimwikiGraph
 graph = VimwikiGraph(root_dir=vim.eval('g:vimwiki_root_dir'))
 EOF
 
+
 function! VimwikiGraph#BuildGraph()
   py3 graph = VimwikiGraph(root_dir=vim.eval('g:vimwiki_root_dir'))
 endfunction
 command! VimWikiBuildGraph call VimwikiGraph#BuildGraph()
+
 
 function! VimwikiGraph#GenerateGraph(highlight_regex, data_regex, ...)
   py3 graph_copy = copy.deepcopy(graph)
@@ -66,5 +70,14 @@ function! VimwikiGraph#GenerateGraph(highlight_regex, data_regex, ...)
 endfunction
 command! -nargs=* VimWikiGenerateGraph call VimwikiGraph#GenerateGraph(v:none, v:none, <f-args>)
 command! -nargs=* VimWikiGenerateGraphC call VimwikiGraph#GenerateGraph(<f-args>)
+
+
+function! VimwikiGraph#AdjacencyGraph(depth)
+  py3 graph_copy = copy.deepcopy(graph)
+  py3 graph_copy.remove_nonadjacent_nodes(vim.current.buffer.name, int(vim.eval('a:depth'))).write(vim.eval('g:vimwiki_graph_name'))
+  call system('xdg-open ' . g:vimwiki_graph_name . '.png &')
+endfunction
+command! -nargs=1 VimWikiGenerateAdjacencyGraph call VimwikiGraph#AdjacencyGraph(<f-args>)
+
 
 let g:vimwiki_graph_plugin_loaded = 1

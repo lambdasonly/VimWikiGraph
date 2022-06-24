@@ -75,7 +75,7 @@ class VimwikiGraph:
         try:
             for regex in regexes:
                 for line in lines:
-                    if re.search(regex, line):
+                    if re.search(regex, line.lower()):
                         matches += 1
                         break
                 if matches == match_count:
@@ -192,6 +192,22 @@ class VimwikiGraph:
             print(e)
         finally:
             return self
+
+
+    def remove_nonadjacent_nodes(self, node:str, depth:int=1):
+        node = self.__resolve_relative_path(node)
+        adjacent_nodes = [node]
+        successors = nx.dfs_successors(self.graph.to_undirected(), node, depth)
+        adjacent_nodes.extend(np.concatenate(list(successors.values())))
+        adjacent_nodes = np.unique(adjacent_nodes)
+        nodes_to_remove = list()
+        for n in self.graph.nodes:
+            if n not in adjacent_nodes:
+                nodes_to_remove.append(n)
+        self.graph.remove_nodes_from(nodes_to_remove)
+        self.graph.nodes[node]['color'] = 'red'
+        self.graph.nodes[node]['style'] = 'filled'
+        return self
 
 
     def extend_node_label(self, regexes:list, join_str:str='\n'):
