@@ -9,7 +9,7 @@
 VimWikiGraph is a plugin extension for [vimwiki](https://github.com/vimwiki/vimwiki). 
 It creates a directed graphs of links between vimwiki files and allows for various
 filtering operations. For the motivation and a practical usecase of this plugin see
-my related [blog post](https://padawansperegrinations.wordpress.com/2022/06/25/was-socrates-a-cat/).
+my related [blog post](https://padawansperegrinations.com/2022/06/25/was-socrates-a-cat/).
 
 # Usage Guide
 VimWikiGraph currently supports one filtering method and two text extraction/highlighting methods.
