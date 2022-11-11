@@ -103,8 +103,10 @@ class VimwikiGraph:
             PG.write_png(f"{name}.png")
         elif filetype == 'dot':
             PG.write_raw(f"{name}.dot")
+        elif filetype == 'gml':
+            nx.write_gml(self.graph, f"{name}.gml")
         else:
-            raise Exception("Invalid file type") 
+            raise Exception("Invalid file type")
 # }}}
 
 

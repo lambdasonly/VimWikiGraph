@@ -16,14 +16,13 @@ VimWikiGraph currently supports one filtering method and two text extraction/hig
 Highlighting and filtering is performed via regular expressions. [See the examples below](#screenshots).
 
 # Commands
-The internal graph representation is automatically generated upon plugin load. If, upon creating 
-new links or files you want to refresh the graph, you can call `VimWikiBuildGraph`.
-
 The graph is visualized by calls to either `VimWikiGenerateAdjacencyGraph <depth>`,
-`VimWikiGenerateGraph [regexes]` or `VimWikiGenerateGraphC <highlight_regex> <extraction_regex> [regexes]`.
+`VimWikiGenerateGraph [regexes]`, `VimWikiGenerateGraphC <highlight_regex> [regexes]`
+or `VimWikiGenerateGraphCC <extraction_regex> <highlight_regex> [regexes]`.
 The adjacency graph contains all nodes that are at most `depth` hops away from the current node (the
 currently active buffer). `VimWikiGenerateGraph [regexes]` is a more streamlined version that only supports
-filtering. It is equivalent to `VimWikiGenerateGraphC v:none v:none [regexes]`. Note that multiple filter regexes are
+filtering. It is equivalent to `VimWikiGenerateGraphC v:none [regexes]` and
+`VimWikiGenerateGraphCC v:none v:none [regexes]`. Note that multiple filter regexes are
 supported and all arguments should be separated only by spaces. Quoting is not required but spaces should be
 escaped if used within a regex. 
 
@@ -33,11 +32,11 @@ Visualize a graph of all notes containing the word 'philo':
 ![basic](screenshots/vimwikigraph2.png)
 
 Additionally highlight all notes containing the word 'cat': 
-`VimWikiGenerateGraphC cat v:none philo`
+`VimWikiGenerateGraphC cat philo`
 ![highlights](screenshots/vimwikigraph3.png)
 
 Display the full graph with the newly found connections while extracting information matching `period:.*`: 
-`VimWikiGenerateGraph v:none period:.*`
+`VimWikiGenerateGraphCC v:none period:.*`
 ![extraction](screenshots/vimwikigraph5.png)
 
 # Installation
@@ -55,7 +54,7 @@ let g:vimwiki_root_dir = '/Path/To/VimWiki'
 
 Recommended keybindings:
 ```
-noremap <Leader>wga :VimWikiGenerateAdjacencyGraph 1<CR>
+noremap <Leader>wga :VimWikiGenerateAdjacencyGraph 2<CR>
 noremap <Leader>wgg :VimWikiGenerateGraph
 ```
 
