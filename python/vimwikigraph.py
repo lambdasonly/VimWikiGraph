@@ -6,22 +6,21 @@ import re
 
 class VimwikiGraph:
 
-# {{{ Private
-    def __init__(self, root_dir:str, file_extensions:list=['wiki'], graph_name:str='vimwikigraph', **args):
+    # {{{ Private
+    def __init__(self, root_dir: str, file_extensions: list = ['wiki'], graph_name: str = 'vimwikigraph', **args):
         self.graph = nx.DiGraph(name=graph_name)
         self.root_dir = root_dir
         self.file_extensions = file_extensions
         self.lines = dict()
         node_dict = self.__create_nodes()
         self.__parse_and_add_edges(node_dict)
-        
 
     def __normalize_path(self, root, link):
         if re.match(r'https?://', link):
             link = re.sub(r'.*:/+', '', link)
             link = re.sub(r'/.*', '', link)
             return link
-        if re.match(f'file:/', link):
+        if re.match('file:/', link):
             link = re.sub(r'.*:/+', '', link)
             link = re.sub(r'.*/', '', link)
             return link
@@ -31,12 +30,10 @@ class VimwikiGraph:
             path += ".wiki"
         return re.sub(r'[^/]+/\.\./', '', path)
 
-
     def __resolve_relative_path(self, path):
         if path[0] == '/':
             return path
         return os.path.join(self.root_dir, path)
-
 
     def __create_nodes(self):
         node_dict = dict()
@@ -49,7 +46,6 @@ class VimwikiGraph:
                     self.graph.add_node(name, label='.'.join(split[:-1]))
         return node_dict
 
-
     def __parse_and_add_edges(self, node_dict):
         for name, root in node_dict.items():
             with open(name, 'r') as f:
@@ -61,8 +57,7 @@ class VimwikiGraph:
                     child_node = self.__normalize_path(root, link[0])
                     self.graph.add_edge(name, child_node)
 
-
-    def __filter_lines(self, regexes:list, lines):
+    def __filter_lines(self, regexes: list, lines):
         """
         Returns true if all of the provided regexes match.
 
@@ -83,11 +78,10 @@ class VimwikiGraph:
         except Exception as e:
             print(e)
         return False
-# }}}
+    # }}}
 
-
-# {{{ Output
-    def write(self, name:str=None, filetype:str='png'):
+    # {{{ Output
+    def write(self, name: str = None, filetype: str = 'png'):
         """
         Writes the current graph to one of name.png or name.dot
 
@@ -107,11 +101,10 @@ class VimwikiGraph:
             nx.write_gml(self.graph, f"{name}.gml")
         else:
             raise Exception("Invalid file type")
-# }}}
+    # }}}
 
-
-# {{{ Graph Operations
-    def add_attribute_by_regex(self, regexes:list, attribute:list, value:list):
+    # {{{ Graph Operations
+    def add_attribute_by_regex(self, regexes: list, attribute: list, value: list):
         """
         Add attributes with the corresponding values to documents whose contents is matched by a
         conjunction of the specified regexes.
@@ -124,12 +117,11 @@ class VimwikiGraph:
         for node in self.graph.nodes:
             lines = self.lines.get(node, list())
             if self.__filter_lines(regexes, lines):
-                for attr,val in zip(attribute, value):
+                for attr, val in zip(attribute, value):
                     self.graph.nodes[node][attr] = val
         return self
-        
 
-    def weight_attribute(self, attribute:str='fontsize', min_val:int=20, max_val:int=100):
+    def weight_attribute(self, attribute: str = 'fontsize', min_val: int = 20, max_val: int = 100):
         """
         Adds and scales a DOC attribute according to a node's scaled betweenness centrality.
         It will assign the maximum value to the node with the highest betweenness centrality.
@@ -145,7 +137,7 @@ class VimwikiGraph:
             max_centrality = max(centrality.values())
             if not max_centrality:
                 return self
-            for key,value in centrality.items():
+            for key, value in centrality.items():
                 val = max(min((min_val*value/max_centrality)**exponent, max_val), min_val)
                 self.graph.nodes[key][attribute] = val
         except Exception as e:
@@ -153,8 +145,7 @@ class VimwikiGraph:
         finally:
             return self
 
-
-    def filter_nodes(self, regexes:list):
+    def filter_nodes(self, regexes: list):
         """
         Filters nodes by regexes. All nodes that do not match one of the regular expressions in
         'regexes' will be removed.
@@ -173,8 +164,7 @@ class VimwikiGraph:
         self.graph.remove_nodes_from(nodes_to_remove)
         return self
 
-
-    def collapse_children(self, node:str, depth:int=1):
+    def collapse_children(self, node: str, depth: int = 1):
         """
         All child nodes will be collapsed into this node. Edges from and to children
         will go to the parent instead.
@@ -195,8 +185,7 @@ class VimwikiGraph:
         finally:
             return self
 
-
-    def remove_nonadjacent_nodes(self, node:str, depth:int=1):
+    def remove_nonadjacent_nodes(self, node: str, depth: int = 1):
         """
         Removes all nodes that are not successors (up to a certain depth)
         of the specified node in an undirected copy of the graph.
@@ -208,7 +197,8 @@ class VimwikiGraph:
         node = self.__resolve_relative_path(node)
         adjacent_nodes = [node]
         successors = nx.dfs_successors(self.graph.to_undirected(), node, depth)
-        adjacent_nodes.extend(np.concatenate(list(successors.values())))
+        if len(list(successors.values())):
+            adjacent_nodes.extend(np.concatenate(list(successors.values())))
         adjacent_nodes = np.unique(adjacent_nodes)
         nodes_to_remove = list()
         for n in self.graph.nodes:
@@ -219,8 +209,7 @@ class VimwikiGraph:
         self.graph.nodes[node]['style'] = 'filled'
         return self
 
-
-    def extend_node_label(self, regexes:list, join_str:str='\n'):
+    def extend_node_label(self, regexes: list, join_str: str = '\n'):
         """
         Add additional information to node labels.
 
