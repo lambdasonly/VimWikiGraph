@@ -1,3 +1,4 @@
+import copy
 import networkx as nx
 from pyvis.network import Network
 import numpy as np
@@ -10,12 +11,14 @@ class VimwikiGraph:
 
     # {{{ Private
     def __init__(self, root_dir: str, file_extensions: list = ['wiki'], graph_name: str = 'vimwikigraph', **args):
+        self.graph_name = graph_name
         self.graph = nx.DiGraph(name=graph_name)
         self.root_dir = root_dir
         self.file_extensions = file_extensions
         self.lines = dict()
         node_dict = self.__create_nodes()
         self.__parse_and_add_edges(node_dict)
+        self.original_graph = copy.deepcopy(self.graph)
 
     def __normalize_path(self, root, link):
         if re.match(r'https?://', link):
@@ -65,13 +68,12 @@ class VimwikiGraph:
 
     def __filter_lines(self, regexes: list, lines):
         """
-        Returns true if all of the provided regexes match.
+        Returns the number of regexes that matched.
 
         Args:
             regexes (list): List of regular expressions.
             lines (list): List of lines to match.
         """
-        match_count = len(regexes)
         matches = 0
         try:
             for regex in regexes:
@@ -79,11 +81,15 @@ class VimwikiGraph:
                     if re.search(regex, line.lower()):
                         matches += 1
                         break
-                if matches == match_count:
-                    return True
         except Exception as e:
             print(e)
-        return False
+        return matches
+
+    def __filter_lines_all(self, regexes: list, lines: list):
+        return len(regexes) == self.__filter_lines(regexes, lines)
+
+    def __filter_lines_any(self, regexes: list, lines: list):
+        return self.__filter_lines(regexes, lines) > 0
     # }}}
 
     # {{{ Output
@@ -124,6 +130,18 @@ class VimwikiGraph:
     # }}}
 
     # {{{ Graph Operations
+    def reset_graph(self):
+        self.graph = copy.deepcopy(self.original_graph)
+        return self
+
+    def reload_graph(self):
+        del self.graph, self.original_graph, self.lines
+        self.graph = nx.DiGraph(name=self.graph_name)
+        self.lines = dict()
+        node_dict = self.__create_nodes()
+        self.__parse_and_add_edges(node_dict)
+        self.original_graph = copy.deepcopy(self.graph)
+
     def add_attribute_by_regex(self, regexes: list, attribute: list, value: list):
         """
         Add attributes with the corresponding values to documents whose contents is matched by a
@@ -136,7 +154,7 @@ class VimwikiGraph:
         """
         for node in self.graph.nodes:
             lines = self.lines.get(node, list())
-            if self.__filter_lines(regexes, lines):
+            if self.__filter_lines_all(regexes, lines):
                 for attr, val in zip(attribute, value):
                     self.graph.nodes[node][attr] = val
         return self
@@ -165,46 +183,76 @@ class VimwikiGraph:
         finally:
             return self
 
-    def filter_nodes(self, regexes: list):
+    def filter_filenames(self, regexes: list):
         """
-        Filters nodes by regexes. All nodes that do not match one of the regular expressions in
-        'regexes' will be removed.
+        Filter filenames by regexes. All nodes that do not match one of the regular expressions in 'regexes'
+        will be removed.
 
         Args:
             regexes (list)
         """
         nodes_to_remove = list()
         for node in self.graph.nodes:
-            remove_node = True
-            lines = self.lines.get(node, list())
-            if self.__filter_lines(regexes, lines):
-                remove_node = False
-            if remove_node:
+            if not self.__filter_lines_all(regexes, [node]):
                 nodes_to_remove.append(node)
         self.graph.remove_nodes_from(nodes_to_remove)
         return self
 
-    def collapse_children(self, node: str, depth: int = 1):
+    def filter_nodes(self, regexes: list):
+        """
+        Filters nodes by regexes. All nodes that do not match one of the regular expressions in 'regexes'
+        will be removed.
+
+        Args:
+            regexes (list)
+        """
+        nodes_to_remove = list()
+        for node in self.graph.nodes:
+            lines = self.lines.get(node, list())
+            if not self.__filter_lines_all(regexes, lines):
+                nodes_to_remove.append(node)
+        self.graph.remove_nodes_from(nodes_to_remove)
+        return self
+
+    def expand_node(self, node: str):
+        if self.graph[node]['is_collapsed']:
+            edges_to_remove = []
+            for neighbor in self.graph.neighbors(node):
+                edges_to_remove.append((node, neighbor))
+            self.graph.remove_edges_from(edges_to_remove)
+
+            edges_to_add = []
+            nodes_to_add = []
+            for neighbor in self.original_graph.neighbors(node):
+                nodes_to_add.append(neighbor)
+                for neighbor2 in self.original_graph.neighbors(neighbor):
+                    edges_to_add.append((neighbor, neighbor2))
+            self.graph.add_nodes_from(nodes_to_add)
+            self.graph.add_edges_from(edges_to_add)
+            self.graph.nodes[node]['is_collapsed'] = False
+        return self
+
+    def collapse_children(self, nodes: list, depth: int = 1):
         """
         All child nodes will be collapsed into this node. Edges from and to children
         will go to the parent instead.
 
         Args:
             node (str): Full or relative path of a vimwiki document.
-            depth (int): Number of levels to contract. Setting depth to a high value
-                will remove all of the node's children
+            depth (int): Number of levels to collapse.
         """
-        try:
-            node = self.__resolve_relative_path(node)
-            node = self.__add_suffix_to_node(node)
-            children = nx.dfs_successors(self.graph, node, depth)
-            for child in np.concatenate(list(children.values())):
-                nx.contracted_nodes(self.graph, node, child, self_loops=False, copy=False)
-            del self.graph.nodes[node]['contraction']
-        except Exception:
-            traceback.print_exc()
-        finally:
-            return self
+        for node in nodes:
+            try:
+                node = self.__resolve_relative_path(node)
+                node = self.__add_suffix_to_node(node)
+                self.graph.nodes[node]['is_collapsed'] = True
+                children = nx.dfs_successors(self.graph, node, depth)
+                for child in np.concatenate(list(children.values())):
+                    nx.contracted_nodes(self.graph, node, child, self_loops=False, copy=False)
+                del self.graph.nodes[node]['contraction']
+            except Exception:
+                traceback.print_exc()
+        return self
 
     def remove_nonadjacent_nodes(self, node: str, depth: int = 1):
         """

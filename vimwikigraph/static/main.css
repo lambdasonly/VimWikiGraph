@@ -28,7 +28,7 @@ nav {
   padding: 5px;
 }
 
-#btnApply, #btnReset {
+#btnApply, #btnReset, #btnReload {
   margin: 5px;
   padding: 5px;
 }
@@ -47,7 +47,7 @@ nav {
   position: absolute;
   left: 0;
   top: 0;
-  width: 100%;
+  width: 90%;
   padding: 10px;
   margin-left: 50px;
   margin-right: 50px;

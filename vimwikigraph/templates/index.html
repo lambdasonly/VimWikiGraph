@@ -17,16 +17,19 @@
 
 <section id="content">
   <nav>
-    <form method="post" accept-charset="utf-8">
+    <form method="post" action="/" accept-charset="utf-8">
       <label for="inptFilter">Filter:</label><br>
       <input type="search" placeholder="Filter Regex" value="{{ filter_value }}" name="inptFilter" id="inptFilter"/>
+      <label for="inptFileFilter">Filename Filter:</label><br>
+      <input type="search" placeholder="Filename Regex" value="{{ filename_value }}" name="inptFileFilter" id="inptFileFilter"/>
       <label for="inptHighlight">Highlight:</label><br>
       <input type="search" placeholder="Highlight Regex" value="{{ highlight_value }}" name="inptHighlight" id="inptHighlight"/>
       <label for="inptCollapse">Collapse:</label><br>
-      <input type="seasrch" placeholder="Collapse Nodes" value="{{ collapse_value }}" name="inptCollapse" id="inptCollapse"/>
+      <input type="search" placeholder="Collapse Nodes" value="{{ collapse_value }}" name="inptCollapse" id="inptCollapse"/>
       <div id="buttons">
         <input type="submit" id="btnApply" value="Apply"/>
-        <input type="button" id="btnReset" value="Reset">
+        <input type="button" id="btnReset" value="Reset" title="Reset filters">
+        <input type="submit" id="btnReload" formaction="/reload" value="Reload" title="Rebuild graph after changes to wiki files">
       </div>
     </form>
   </nav>
@@ -39,12 +42,12 @@
 </body>
 
 
-<!-- <script type="text/javascript" src="{{ url_for("static", filename="main.js") }}"></script> -->
-
 <script charset="utf-8">
   document.getElementById("btnReset").addEventListener("click", function() {
     document.getElementById("inptFilter").value = ""
     document.getElementById("inptHighlight").value = ""
+    document.getElementById("inptFileFilter").value = ""
+    document.getElementById("inptCollapse").value = ""
   });
 </script>
 
@@ -62,7 +65,7 @@
   );
 </script>
 
-<script type="text/javascript">
+<script charset="utf-8">
   function requestNodeText(node) {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "http://127.0.0.1:5000/node");
@@ -74,7 +77,7 @@
         var json = JSON.parse(xhr.responseText);
         var node_text = document.getElementById("nodeText");
         var graph_container = document.getElementById("graph");
-        node_text.textContent = json.text;
+        node_text.innerHTML = json.text;
         if (json.text.length === 0) {
           node_text.style.visibility = 'hidden';
           graph_container.style.opacity = 1;
@@ -87,6 +90,14 @@
         console.error("Node not found");
       }
     };
+  }
+
+  function toggleExpandNode(node) {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "http://127.0.0.1:5000/network");
+    var params = JSON.stringify({ node: node });
+    xhr.setRequestHeader("Content-type", "application/json; charset=utf-8");
+    xhr.send(params);
   }
 
   const xhr = new XMLHttpRequest();
@@ -109,6 +120,7 @@
           requestNodeText(node);
         }
       });
+      network.on("")
     } else if (xhr.status === 404) {
       console.error("No records found");
     }
