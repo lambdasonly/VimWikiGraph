@@ -4,6 +4,7 @@ from flask import Flask, render_template, request
 from flask_visjs import VisJS4, Network
 
 from .vimwikigraph import VimwikiGraph
+from .vimwikitags import VimwikiTags
 
 
 app = Flask(__name__)
@@ -14,12 +15,14 @@ VisJS4().init_app(app)
 class State:
     instance = None
 
-    def __init__(self, SEP=','):
+    def __init__(self, n_tags=30, SEP=','):
         self.vimwikigraph = VimwikiGraph(app.config['VIMWIKIDIR'])
+        self.vimwikitags = VimwikiTags(app.config['VIMWIKIDIR'])
         self.filter = app.config.get('DEFAULT_FILTER', [])
         self.highlight = ""
         self.filename_filter = []
         self.collapse = []
+        self.n_tags = n_tags
         self.SEP = SEP
 
     @staticmethod
@@ -100,9 +103,7 @@ def node_json():
     if 'node' in request.json:
         node = request.json['node']
         lines = ''.join(state.vimwikigraph.lines[node])
-        # won't find all highlights because the substitution may break subsequent matches
-        for f in state.filter:
-            lines = re.sub(f, r'<span style="color:red">\g<0></span>', lines)
+        lines = re.sub(state.highlight, r'<span style="background:red">\g<0></span>', lines, flags=re.IGNORECASE)
     else:
         lines = []
     return json.dumps({'text': lines})
@@ -112,6 +113,7 @@ def node_json():
 def reload():
     state = State.get_instance()
     state.vimwikigraph.reload_graph()
+    state.vimwikitags.reload()
     state.set_form(
         request.form['inptFilter'],
         request.form['inptFileFilter'],
@@ -126,6 +128,14 @@ def reload():
         collapse_value=state.SEP.join(state.collapse),
     )
     return rendered
+
+
+@app.route('/tags', methods=['GET'])
+def tags():
+    state = State.get_instance()
+    count_dict = state.vimwikitags.populate_tags()
+    tags = [tag for tag in list(count_dict.keys()) if not (tag.startswith('state_') or tag in ['PMO', 'reflection', 'observation'])]
+    return json.dumps({'tags': tags[:state.n_tags]})
 
 
 def create_app():

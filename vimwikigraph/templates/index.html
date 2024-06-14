@@ -32,6 +32,7 @@
         <input type="submit" id="btnReload" formaction="/reload" value="Reload" title="Rebuild graph after changes to wiki files">
       </div>
     </form>
+    <div id="tagsContainer">
   </nav>
   <div id="graphContainer">
     <section id="graph"></section>
@@ -49,9 +50,7 @@
     document.getElementById("inptFileFilter").value = ""
     document.getElementById("inptCollapse").value = ""
   });
-</script>
 
-<script charset="utf-8">
   document.addEventListener(
     "keydown",
     (event) => {
@@ -103,7 +102,6 @@
   const xhr = new XMLHttpRequest();
   xhr.open("GET", "http://127.0.0.1:5000/network");
   xhr.send();
-
   xhr.onload = function() {
     if (xhr.status === 200) {
       var json = JSON.parse(xhr.responseText);
@@ -125,6 +123,49 @@
       console.error("No records found");
     }
   };
+</script>
+
+<script>
+  const tagsContainer = document.getElementById('tagsContainer');
+  let tags = []
+
+  function populateTagsContainer() {
+    tagsContainer.innerHTML = '';
+    tags.forEach(tagValue => {
+      const tagElement = document.createElement('span');
+      tagElement.classList.add('tag');
+      tagElement.textContent = tagValue;
+      tagElement.dataset.value = tagValue.toLowerCase().replace(/\s/g, '');
+      tagElement.addEventListener('click', function() {
+        this.classList.toggle('selected');
+        updateSelectedTags();
+      });
+      tagsContainer.appendChild(tagElement);
+    });
+  }
+
+  function updateSelectedTags() {
+    const selectedTags = Array.from(tagsContainer.querySelectorAll('.tag.selected')).map(tag => ':' + tag.dataset.value + ':');
+    const inptFilter = document.getElementById("inptFilter");
+    inptFilter.value = selectedTags.join('|');
+  }
+
+  const xhrTag = new XMLHttpRequest();
+  xhrTag.open("GET", "http://127.0.0.1:5000/tags");
+  xhrTag.send();
+  xhrTag.onload = function() {
+    if (xhrTag.status === 200) {
+      const json = JSON.parse(xhrTag.responseText);
+      tags = json.tags;
+      console.log(tags)
+      populateTagsContainer();
+    } else if (xhr.status === 404) {
+      console.error("Tag request failed");
+    }
+  };
+
+  // TODO sync tag selection and inptFilter
+  // const inptFilter = document.getElementById("inptFilter");
 </script>
 
 </html>

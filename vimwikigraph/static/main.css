@@ -56,3 +56,18 @@ nav {
   height: 85vh;
   visibility: hidden;
 }
+
+.tag {
+  font-size: 12px;
+  display: inline-block;
+  padding: 2px 3px;
+  margin: 3px;
+  background-color: #ccc;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.tag.selected {
+  background-color: #007bff;
+  color: #fff;
+}
