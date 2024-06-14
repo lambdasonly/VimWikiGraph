@@ -1,16 +1,20 @@
 import copy
-import networkx as nx
-from pyvis.network import Network
-import numpy as np
 import os
 import re
 import traceback
+import logging
+from logging import critical, debug, error, info, warning
+
+import networkx as nx
+import numpy as np
+from pyvis.network import Network
 
 
 class VimwikiGraph:
 
     # {{{ Private
     def __init__(self, root_dir: str, file_extensions: list = ['wiki'], graph_name: str = 'vimwikigraph', **args):
+        # logging.basicConfig(level=logging.DEBUG)
         self.graph_name = graph_name
         self.graph = nx.DiGraph(name=graph_name)
         self.root_dir = root_dir
@@ -66,9 +70,9 @@ class VimwikiGraph:
                     child_node = self.__normalize_path(root, link[0])
                     self.graph.add_edge(name, child_node)
 
-    def __filter_lines(self, regexes: list, lines):
+    def __filter_lines(self, regexes: list, lines: list):
         """
-        Returns the number of regexes that matched.
+        Returns the number of regexes that matched any of the lines in lines.
 
         Args:
             regexes (list): List of regular expressions.
@@ -85,48 +89,13 @@ class VimwikiGraph:
             print(e)
         return matches
 
-    def __filter_lines_all(self, regexes: list, lines: list):
-        return len(regexes) == self.__filter_lines(regexes, lines)
+    def __filter_lines_all(self, regexes: list, lines: list, invert: bool = False):
+        if invert:
+            return self.__filter_lines(regexes, lines) == 0
+        return self.__filter_lines(regexes, lines) == len(regexes)
 
     def __filter_lines_any(self, regexes: list, lines: list):
         return self.__filter_lines(regexes, lines) > 0
-    # }}}
-
-    # {{{ Output
-    def write(self, name: str = None, filetype: str = 'png'):
-        """
-        Writes the current graph to one of name.png or name.dot
-
-        Args:
-            name (str): Name of the resulting file.
-            filetype (str): File type. May be either 'png' or 'dot'.
-        """
-        if not name:
-            name = self.graph.name
-        PG = nx.drawing.nx_pydot.to_pydot(self.graph)
-        PG.set_rankdir('LR')
-        if filetype == 'png':
-            PG.write_png(f"{name}.png")
-        elif filetype == 'dot':
-            PG.write_raw(f"{name}.dot")
-        elif filetype == 'gml':
-            nx.write_gml(self.graph, f"{name}.gml")
-        else:
-            raise Exception("Invalid file type")
-
-    def write_pyviz(self, name: str = None):
-        if not name:
-            name = self.graph.name
-        nt = Network(
-            height='80vh',
-            width='95vw',
-            neighborhood_highlight=True,
-            filter_menu=True,
-            cdn_resources='remote',
-        )
-        nt.from_nx(self.graph)
-        with open(f'{name}.html', 'w') as f:
-            f.write(nt.generate_html())
     # }}}
 
     # {{{ Graph Operations
@@ -183,33 +152,36 @@ class VimwikiGraph:
         finally:
             return self
 
-    def filter_filenames(self, regexes: list):
+    def filter_filenames(self, regexes: list, invert: bool = False):
         """
-        Filter filenames by regexes. All nodes that do not match one of the regular expressions in 'regexes'
-        will be removed.
+        Filter filenames by regexes. All node labels that do not match all of the regular expressions in 'regexes' will be removed. If invert then all
+        nodes that match any of the regular expressions will be removed.
 
         Args:
             regexes (list)
         """
         nodes_to_remove = list()
-        for node in self.graph.nodes:
-            if not self.__filter_lines_all(regexes, [node]):
+        for node, data in self.graph.nodes(data=True):
+            label = data.get('label')
+            debug(f"{node} label: {label} regexes: {regexes}")
+            if label and not self.__filter_lines_all(regexes, [data.get('label')], invert=invert):
                 nodes_to_remove.append(node)
         self.graph.remove_nodes_from(nodes_to_remove)
         return self
 
-    def filter_nodes(self, regexes: list):
+    def filter_nodes(self, regexes: list, invert: bool = False):
         """
-        Filters nodes by regexes. All nodes that do not match one of the regular expressions in 'regexes'
-        will be removed.
+        Filters nodes by regexes. All nodes that do not match all of the regular expressions in 'regexes' will be removed. If invert then all nodes that
+        match any of the regular expressions will be removed.
 
         Args:
             regexes (list)
+            invert (bool)
         """
         nodes_to_remove = list()
         for node in self.graph.nodes:
             lines = self.lines.get(node, list())
-            if not self.__filter_lines_all(regexes, lines):
+            if not self.__filter_lines_all(regexes, lines, invert=invert):
                 nodes_to_remove.append(node)
         self.graph.remove_nodes_from(nodes_to_remove)
         return self
@@ -234,8 +206,7 @@ class VimwikiGraph:
 
     def collapse_children(self, nodes: list, depth: int = 1):
         """
-        All child nodes will be collapsed into this node. Edges from and to children
-        will go to the parent instead.
+        All child nodes will be collapsed into this node. Edges from and to children will go to the parent instead.
 
         Args:
             node (str): Full or relative path of a vimwiki document.
@@ -256,8 +227,7 @@ class VimwikiGraph:
 
     def remove_nonadjacent_nodes(self, node: str, depth: int = 1):
         """
-        Removes all nodes that are not successors (up to a certain depth)
-        of the specified node in an undirected copy of the graph.
+        Removes all nodes that are not successors (up to a certain depth) of the specified node in an undirected copy of the graph.
 
         Args:
             node (str)
@@ -301,4 +271,41 @@ class VimwikiGraph:
             print(e)
         finally:
             return self
-# }}}
+    # }}}
+
+    # {{{ Output
+    def write(self, name: str = "", filetype: str = 'png'):
+        """
+        Writes the current graph to one of name.png or name.dot
+
+        Args:
+            name (str): Name of the resulting file.
+            filetype (str): File type. May be either 'png' or 'dot'.
+        """
+        if not name:
+            name = self.graph.name
+        PG = nx.drawing.nx_pydot.to_pydot(self.graph)
+        PG.set_rankdir('LR')
+        if filetype == 'png':
+            PG.write_png(f"{name}.png")
+        elif filetype == 'dot':
+            PG.write_raw(f"{name}.dot")
+        elif filetype == 'gml':
+            nx.write_gml(self.graph, f"{name}.gml")
+        else:
+            raise Exception("Invalid file type")
+
+    def write_pyviz(self, name: str = ""):
+        if not name:
+            name = self.graph.name
+        nt = Network(
+            height='80vh',
+            width='95vw',
+            neighborhood_highlight=True,
+            filter_menu=True,
+            cdn_resources='remote',
+        )
+        nt.from_nx(self.graph)
+        with open(f'{name}.html', 'w') as f:
+            f.write(nt.generate_html())
+    # }}}

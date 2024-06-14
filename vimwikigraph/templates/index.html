@@ -2,12 +2,10 @@
 <html lang="en">
 <head>
   <title>VimwikiGraph</title>
-  <link rel="stylesheet" type="text/css" href="{{ url_for("static", filename="main.css") }}"></link>
-  <script
-    type="text/javascript"
-    src="https://unpkg.com/vis-network@9.1.6/standalone/umd/vis-network.min.js"
-  ></script>
-  <!-- src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js" -->
+  <link rel="stylesheet" type="text/css" href="{{ url_for("static", filename="main.css") }}"/>
+  <!-- <script type="text/javascript" src="https://unpkg.com/vis-network@9.1.6/standalone/umd/vis-network.min.js"></script> -->
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/vis-network@9.1.9/peer/umd/vis-network.min.js"></script>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/vis-data@7.1.9/peer/umd/vis-data.min.js"></script>
 </head>
 <body>
 
@@ -19,53 +17,88 @@
   <nav>
     <form method="post" action="/" accept-charset="utf-8">
       <label for="inptFilter">Filter:</label><br>
-      <input type="search" placeholder="Filter Regex" value="{{ filter_value }}" name="inptFilter" id="inptFilter"/>
+      <div class="filterinputs">
+            <input type="search" placeholder="Filter Regexes" value="{{ filter_value }}" name="inptFilter" id="inptFilter" title="Multiple regexes can be separated by '{{ sep }}'"/>
+        <label class="switch" title="Invert filter">
+          <input type="checkbox" name="inptInvertFilter" {% if invert_filter_value %}checked{% endif %}/>
+          <span class="slider"/>
+        </label>
+      </div>
       <label for="inptFileFilter">Filename Filter:</label><br>
-      <input type="search" placeholder="Filename Regex" value="{{ filename_value }}" name="inptFileFilter" id="inptFileFilter"/>
+      <div class="filterinputs">
+        <input type="search" placeholder="Filename Regexes" value="{{ filename_value }}" name="inptFileFilter" id="inptFileFilter" title="Multiple regexes can be separated by '{{ sep }}'"/>
+        <label class="switch" title="Invert filter">
+          <input type="checkbox" name="inptInvertFileFilter" {% if invert_filename_value %}checked{% endif %}/>
+          <span class="slider"/>
+        </label>
+      </div>
       <label for="inptHighlight">Highlight:</label><br>
-      <input type="search" placeholder="Highlight Regex" value="{{ highlight_value }}" name="inptHighlight" id="inptHighlight"/>
+      <input type="search" placeholder="Highlight Regexes" value="{{ highlight_value }}" name="inptHighlight" id="inptHighlight" title="Multiple regexes can be separated by '{{ sep }}'"/>
       <label for="inptCollapse">Collapse:</label><br>
-      <input type="search" placeholder="Collapse Nodes" value="{{ collapse_value }}" name="inptCollapse" id="inptCollapse"/>
+        <input type="search" placeholder="Collapse Nodes" value="{{ collapse_value }}" name="inptCollapse" id="inptCollapse" title="List of nodes separated by '{{ sep }}' to collapse"/>
       <div id="buttons">
         <input type="submit" id="btnApply" value="Apply"/>
-        <input type="button" id="btnReset" value="Reset" title="Reset filters">
+        <input type="button" id="btnReset" value="Reset" title="Reset filters to config values">
         <input type="submit" id="btnReload" formaction="/reload" value="Reload" title="Rebuild graph after changes to wiki files">
       </div>
     </form>
+    <div id="tagsContainer">
   </nav>
   <div id="graphContainer">
     <section id="graph"></section>
     <section id="nodeText"></section>
   </div>
 </section>
-  
+
 </body>
 
 
 <script charset="utf-8">
-  document.getElementById("btnReset").addEventListener("click", function() {
-    document.getElementById("inptFilter").value = ""
-    document.getElementById("inptHighlight").value = ""
-    document.getElementById("inptFileFilter").value = ""
-    document.getElementById("inptCollapse").value = ""
-  });
-</script>
+  const inptFilter = document.getElementById("inptFilter");
+  const invertFilter = document.getElementsByName("inptInvertFilter")[0];
+  const inptFileFilter = document.getElementById("inptFileFilter");
+  const invertFileFilter = document.getElementsByName("inptInvertFileFilter")[0];
+  const inptHighlight = document.getElementById("inptHighlight");
+  const inptCollapse = document.getElementById("inptCollapse");
+  const graphContainer = document.getElementById("graph");
+  const tagsContainer = document.getElementById('tagsContainer');
 
-<script charset="utf-8">
+
+  //----------------------------------------------------------------------------------------------------
+  // EVENT LISTENERS
+  document.getElementById("btnReset").addEventListener("click", function() {
+    xhrTag.open("GET", "http://127.0.0.1:5000/reset");
+    xhrTag.send();
+    xhrTag.onload = function() {
+      if (xhrTag.status === 200) {
+        const json = JSON.parse(xhrTag.responseText);
+        inptFilter.value = json.filter_value;
+        invertFilter.checked = json.invert_filter_value;
+        inptFileFilter.value = json.filename_value;
+        invertFileFilter.checked = json.invert_filename_value;
+        inptHighlight.value = json.highlight_value;
+        inptCollapse.value = json.collapse_value;
+      } else {
+        console.error("Reset request failed. Error code: " + xhrTag.status);
+      }
+      populateTagsContainer();
+    };
+  });
+
   document.addEventListener(
     "keydown",
     (event) => {
       if (event.key === "Escape") {
         var node_text = document.getElementById("nodeText");
-        var graph_container = document.getElementById("graph");
         node_text.style.visibility = 'hidden';
-        graph_container.style.opacity = 1;
+        graphContainer.style.opacity = 1;
       }
     }
   );
-</script>
 
-<script charset="utf-8">
+
+  //----------------------------------------------------------------------------------------------------
+  // NODE TEXT
   function requestNodeText(node) {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "http://127.0.0.1:5000/node");
@@ -76,44 +109,37 @@
       if (xhr.status === 200) {
         var json = JSON.parse(xhr.responseText);
         var node_text = document.getElementById("nodeText");
-        var graph_container = document.getElementById("graph");
         node_text.innerHTML = json.text;
         if (json.text.length === 0) {
           node_text.style.visibility = 'hidden';
-          graph_container.style.opacity = 1;
+          graphContainer.style.opacity = 1;
         }
         else {
           node_text.style.visibility = 'visible';
-          graph_container.style.opacity = 0.2;
+          graphContainer.style.opacity = 0.2;
         }
-      } else if (xhr.status === 404) {
-        console.error("Node not found");
+      } else {
+        console.error(`Node request failed. Error code: ${xhr.status} - ${xhr.statusText}`);
       }
     };
-  }
-
-  function toggleExpandNode(node) {
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", "http://127.0.0.1:5000/network");
-    var params = JSON.stringify({ node: node });
-    xhr.setRequestHeader("Content-type", "application/json; charset=utf-8");
-    xhr.send(params);
   }
 
   const xhr = new XMLHttpRequest();
   xhr.open("GET", "http://127.0.0.1:5000/network");
   xhr.send();
-
   xhr.onload = function() {
     if (xhr.status === 200) {
       var json = JSON.parse(xhr.responseText);
-      var container = document.getElementById("graph");
       var data = {
         nodes: new vis.DataSet(json.nodes),
         edges: new vis.DataSet(json.edges),
       };
-      var options = {};
-      var network = new vis.Network(container, data, options);
+      var options = {
+        layout: {
+          improvedLayout: false
+        },
+      };
+      var network = new vis.Network(graphContainer, data, options);
       network.on("click", function(properties) {
         var node = properties.nodes[0];
         if (node) {
@@ -121,8 +147,53 @@
         }
       });
       network.on("")
-    } else if (xhr.status === 404) {
-      console.error("No records found");
+    } else {
+      console.error(`Network request failed. Error code: ${xhr.status} - ${xhr.statusText}`);
+    }
+  };
+
+
+  //----------------------------------------------------------------------------------------------------
+  // TAGS
+  let tags = []
+
+  function populateTagsContainer() {
+    tagsContainer.innerHTML = '';
+    const inptFilterText = inptFilter.value;
+    console.log("inptFilterText:", inptFilterText);
+    tags.forEach(tagValue => {
+      tagValue = tagValue.toLowerCase().replace(/\s/g, '');
+      const tagElement = document.createElement('span');
+      tagElement.classList.add('tag');
+      tagElement.textContent = tagValue;
+      tagElement.dataset.value = tagValue;
+      if (inptFilterText.includes(tagValue)) {
+        tagElement.classList.add('selected');
+      }
+      tagElement.addEventListener('click', function() {
+        this.classList.toggle('selected');
+        updateFilterWithSelectedTags();
+      });
+      tagsContainer.appendChild(tagElement);
+    });
+  }
+
+  function updateFilterWithSelectedTags() {
+    const selectedTags = Array.from(tagsContainer.querySelectorAll('.tag.selected')).map(tag => ':' + tag.dataset.value + ':');
+    inptFilter.value = selectedTags.join('|');
+  }
+
+  const xhrTag = new XMLHttpRequest();
+  xhrTag.open("GET", "http://127.0.0.1:5000/tags");
+  xhrTag.send();
+  xhrTag.onload = function() {
+    if (xhrTag.status === 200) {
+      const json = JSON.parse(xhrTag.responseText);
+      tags = json.tags;
+      console.log(tags)
+      populateTagsContainer();
+    } else {
+      console.error(`Tag request failed. Error code: ${xhr.status} - ${xhr.statusText}`);
     }
   };
 </script>
